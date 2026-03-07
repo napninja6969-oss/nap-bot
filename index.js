@@ -13,9 +13,23 @@ client.on("ready", () => {
 });
 
 client.on("messageCreate", message => {
-  if (message.content === ".ping") {
+  if (message.author.bot) return;
+
+  const command = message.content.toLowerCase();
+
+  if (command === ".ping") {
     message.reply("Pong!");
+  } 
+  else if (command === ".hello") {
+    message.reply("Hello 👋");
+  } 
+  else if (command === ".server") {
+    message.reply(`Server name: ${message.guild.name}`);
+  } 
+  else if (command === ".user") {
+    message.reply(`Your username is ${message.author.username}`);
   }
 });
 
 client.login(process.env.TOKEN);
+
