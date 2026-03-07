@@ -14,7 +14,7 @@ const client = new Client({
 const prefix = ".";
 const spamMap = new Map();
 
-client.on("ready", () => {
+client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
@@ -29,26 +29,26 @@ client.on("messageCreate", async message => {
   if (message.author.bot) return;
 
   // BAD WORD FILTER
-  const badWords = ["badword1","badword2"];
+  const badWords = ["badword1", "badword2"];
   if (badWords.some(w => message.content.toLowerCase().includes(w))) {
     await message.delete();
     return message.channel.send(`${message.author} watch your language.`);
   }
 
-  // SIMPLE ANTI SPAM
+  // SIMPLE ANTI-SPAM
   const now = Date.now();
   const timestamps = spamMap.get(message.author.id) || [];
   timestamps.push(now);
   spamMap.set(message.author.id, timestamps.filter(t => now - t < 5000));
 
   if (spamMap.get(message.author.id).length > 5) {
-    message.delete();
+    await message.delete();
     return message.channel.send(`${message.author} stop spamming.`);
   }
 
   if (!message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).split(" ");
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   // PING
@@ -73,7 +73,7 @@ client.on("messageCreate", async message => {
 
   // AVATAR
   else if (command === "avatar") {
-    message.reply(message.author.displayAvatarURL({dynamic:true}));
+    message.reply(message.author.displayAvatarURL({ dynamic: true }));
   }
 
   // COINFLIP
@@ -84,7 +84,7 @@ client.on("messageCreate", async message => {
 
   // ROLL
   else if (command === "roll") {
-    const roll = Math.floor(Math.random()*6)+1;
+    const roll = Math.floor(Math.random() * 6) + 1;
     message.reply(`🎲 You rolled ${roll}`);
   }
 
@@ -96,9 +96,9 @@ client.on("messageCreate", async message => {
     const amount = parseInt(args[0]);
     if (!amount) return message.reply("Specify number.");
 
-    await message.channel.bulkDelete(amount,true);
+    await message.channel.bulkDelete(amount, true);
     message.channel.send(`Deleted ${amount} messages`)
-      .then(m=>setTimeout(()=>m.delete(),3000));
+      .then(m => setTimeout(() => m.delete(), 3000));
   }
 
   // KICK
@@ -135,11 +135,20 @@ client.on("messageCreate", async message => {
     if (existing) return message.reply("You already have a ticket.");
 
     const channel = await message.guild.channels.create({
-      name:`ticket-${message.author.id}`,
-      type:ChannelType.GuildText,
-      permissionOverwrites:[
-        { id:message.guild.id, deny:["ViewChannel"] },
-        { id:message.author.id, allow:["ViewChannel","SendMessages"] }
+      name: `ticket-${message.author.id}`,
+      type: ChannelType.GuildText,
+      permissionOverwrites: [
+        {
+          id: message.guild.id,
+          deny: [PermissionsBitField.Flags.ViewChannel]
+        },
+        {
+          id: message.author.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages
+          ]
+        }
       ]
     });
 
@@ -152,22 +161,22 @@ client.on("messageCreate", async message => {
     message.channel.delete();
   }
 
-  // REACTION ROLE MESSAGE
+  // REACTION ROLE
   else if (command === "reactrole") {
 
     const msg = await message.channel.send("React with 👍 to get the Member role.");
     await msg.react("👍");
 
-    const filter = (reaction,user) => reaction.emoji.name === "👍" && !user.bot;
+    const filter = (reaction, user) => reaction.emoji.name === "👍" && !user.bot;
 
-    const collector = msg.createReactionCollector({filter});
+    const collector = msg.createReactionCollector({ filter });
 
-    collector.on("collect",(reaction,user)=>{
+    collector.on("collect", (reaction, user) => {
 
       const member = message.guild.members.cache.get(user.id);
-      const role = message.guild.roles.cache.find(r=>r.name==="Member");
+      const role = message.guild.roles.cache.find(r => r.name === "Member");
 
-      if(role) member.roles.add(role);
+      if (role) member.roles.add(role);
 
     });
   }
@@ -198,3 +207,8 @@ Commands:
 });
 
 client.login(process.env.TOKEN);
+
+});
+
+client.login(process.env.TOKEN);
+
