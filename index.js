@@ -1,27 +1,21 @@
-const { Client, GatewayIntentBits, Collection } = require("discord.js");
-const config = require("./config.json");
+const { Client, GatewayIntentBits } = require("discord.js");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.MessageContent
   ]
 });
-client.commands = new Collection();
+
+client.on("ready", () => {
+  console.log(`Logged in as ${client.user.tag}`);
+});
 
 client.on("messageCreate", message => {
-  if (message.author.bot) return;
-  if (!message.content.startsWith(config.prefix)) return;
-
-  const args = message.content.slice(config.prefix.length).trim().split(/ +/);
-  const commandName = args.shift().toLowerCase();
-
-  const command = client.commands.get(commandName);
-  if (!command) return;
-
-  command.execute(message, args);
+  if (message.content === ".ping") {
+    message.reply("Pong!");
+  }
 });
+
 client.login(process.env.TOKEN);
