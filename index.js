@@ -1,17 +1,15 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessageReactions
+    GatewayIntentBits.GuildMembers
   ]
 });
 
 const prefix = ".";
-const spamMap = new Map();
 
 client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -19,30 +17,14 @@ client.once("ready", () => {
 
 client.on("guildMemberAdd", member => {
   const channel = member.guild.systemChannel;
-  if (channel) channel.send(`Welcome ${member.user.tag} to the server 🎉`);
+  if (channel) {
+    channel.send(`Welcome ${member.user.tag} to the server 🎉`);
+  }
 });
 
 client.on("messageCreate", async message => {
 
   if (message.author.bot) return;
-
-  // BAD WORD FILTER
-  const badWords = ["badword1","badword2"];
-  if (badWords.some(w => message.content.toLowerCase().includes(w))) {
-    await message.delete();
-    return message.channel.send(`${message.author} watch your language.`);
-  }
-
-  // ANTI SPAM
-  const now = Date.now();
-  const timestamps = spamMap.get(message.author.id) || [];
-  timestamps.push(now);
-  spamMap.set(message.author.id, timestamps.filter(t => now - t < 5000));
-
-  if (spamMap.get(message.author.id).length > 5) {
-    await message.delete();
-    return message.channel.send(`${message.author} stop spamming.`);
-  }
 
   if (!message.content.startsWith(prefix)) return;
 
@@ -50,106 +32,74 @@ client.on("messageCreate", async message => {
   const command = args.shift().toLowerCase();
 
   if (command === "ping") {
-    message.reply("Pong!");
+    return message.reply("Pong!");
   }
 
-  else if (command === "hello") {
-    message.reply("Hello 👋");
+  if (command === "hello") {
+    return message.reply("Hello 👋");
   }
 
-  else if (command === "user") {
-    message.reply(`Username: ${message.author.username}`);
+  if (command === "server") {
+    return message.reply(`Server name: ${message.guild.name}`);
   }
 
-  else if (command === "server") {
-    message.reply(`Server name: ${message.guild.name}`);
+  if (command === "user") {
+    return message.reply(`Your username is ${message.author.username}`);
   }
 
-  else if (command === "avatar") {
-    message.reply(message.author.displayAvatarURL({dynamic:true}));
+  if (command === "avatar") {
+    return message.reply(message.author.displayAvatarURL({ dynamic: true }));
   }
 
-  else if (command === "coinflip") {
+  if (command === "coinflip") {
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    message.reply(`🪙 ${result}`);
+    return message.reply(`🪙 ${result}`);
   }
 
-  else if (command === "roll") {
-    const roll = Math.floor(Math.random()*6)+1;
-    message.reply(`🎲 You rolled ${roll}`);
+  if (command === "roll") {
+    const roll = Math.floor(Math.random() * 6) + 1;
+    return message.reply(`🎲 You rolled ${roll}`);
   }
 
-  else if (command === "clear") {
+  if (command === "clear") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-      return message.reply("No permission.");
+      return message.reply("You don't have permission.");
 
     const amount = parseInt(args[0]);
-    if (!amount) return message.reply("Specify number.");
+    if (!amount) return message.reply("Enter number of messages.");
 
-    await message.channel.bulkDelete(amount,true);
-    message.channel.send(`Deleted ${amount} messages`)
-      .then(m => setTimeout(() => m.delete(),3000));
-
+    await message.channel.bulkDelete(amount, true);
+    return message.channel.send(`Deleted ${amount} messages`);
   }
 
-  else if (command === "kick") {
+  if (command === "kick") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers))
-      return message.reply("No permission.");
+      return message.reply("You don't have permission.");
 
     const member = message.mentions.members.first();
     if (!member) return message.reply("Mention a user.");
 
     await member.kick();
-    message.channel.send(`${member.user.tag} kicked`);
-
+    return message.channel.send(`${member.user.tag} was kicked`);
   }
 
-  else if (command === "ban") {
+  if (command === "ban") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers))
-      return message.reply("No permission.");
+      return message.reply("You don't have permission.");
 
     const member = message.mentions.members.first();
     if (!member) return message.reply("Mention a user.");
 
     await member.ban();
-    message.channel.send(`${member.user.tag} banned`);
-
+    return message.channel.send(`${member.user.tag} was banned`);
   }
 
-  else if (command === "ticket") {
+  if (command === "help") {
 
-    const existing = message.guild.channels.cache.find(
-      c => c.name === `ticket-${message.author.id}`
-    );
-
-    if (existing) return message.reply("You already have a ticket.");
-
-    const channel = await message.guild.channels.create({
-      name: `ticket-${message.author.id}`,
-      type: ChannelType.GuildText,
-      permissionOverwrites: [
-        { id: message.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-        { id: message.author.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-      ]
-    });
-
-    channel.send(`${message.author} Support will be with you soon.`);
-
-  }
-
-  else if (command === "close") {
-
-    if (!message.channel.name.startsWith("ticket-")) return;
-    message.channel.delete();
-
-  }
-
-  else if (command === "help") {
-
-    message.reply(`
+    return message.reply(`
 Commands:
 .ping
 .hello
@@ -158,14 +108,11 @@ Commands:
 .avatar
 .coinflip
 .roll
-.ticket
-.close
 .clear
 .kick
 .ban
 .help
 `);
-
   }
 
 });
