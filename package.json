@@ -1,7 +1,7 @@
 {
   "name": "nap-bot",
   "version": "1.0.0",
-  "description": "Discord bot",
+  "description": "Advanced Discord server bot",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
