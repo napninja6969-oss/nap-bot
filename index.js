@@ -35,4 +35,5 @@ client.on("messageCreate", message => {
  if (cmd) cmd.execute(message, args, client);
 });
 
-client.login(config.token);
+client.login(process.env.TOKEN);
+
