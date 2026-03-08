@@ -1,11 +1,16 @@
-const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require("discord.js");
+const { QuickDB } = require("quick.db");
+
+const db = new QuickDB();
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildMessageReactions
   ]
 });
 
@@ -15,106 +20,221 @@ client.once("ready", () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
-client.on("guildMemberAdd", member => {
-  const channel = member.guild.systemChannel;
-  if (channel) {
-    channel.send(`Welcome ${member.user.tag} to the server 🎉`);
-  }
-});
+
+// =========================
+// 📊 LEVEL SYSTEM
+// =========================
 
 client.on("messageCreate", async message => {
 
   if (message.author.bot) return;
+  if (!message.guild) return;
 
+  let xp = await db.get(`xp_${message.author.id}`);
+  if (!xp) xp = 0;
+
+  xp += 5;
+
+  await db.set(`xp_${message.author.id}`, xp);
+
+  let level = await db.get(`level_${message.author.id}`);
+  if (!level) level = 1;
+
+  let needed = level * 100;
+
+  if (xp >= needed) {
+
+    level++;
+
+    await db.set(`level_${message.author.id}`, level);
+    await db.set(`xp_${message.author.id}`, 0);
+
+    message.channel.send(`${message.author} leveled up to **${level}** 🎉`);
+  }
+
+});
+
+
+// =========================
+// 🎮 COMMAND HANDLER
+// =========================
+
+client.on("messageCreate", async message => {
+
+  if (message.author.bot) return;
   if (!message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const command = args.shift().toLowerCase();
+  const args = message.content.slice(prefix.length).split(" ");
+  const cmd = args.shift().toLowerCase();
 
-  if (command === "ping") {
-    return message.reply("Pong!");
+
+  // PING
+  if (cmd === "ping") {
+    return message.reply("🏓 Pong!");
   }
 
-  if (command === "hello") {
-    return message.reply("Hello 👋");
+
+  // LEVEL
+  if (cmd === "level") {
+
+    let level = await db.get(`level_${message.author.id}`) || 1;
+    let xp = await db.get(`xp_${message.author.id}`) || 0;
+
+    message.reply(`Level: **${level}** | XP: **${xp}**`);
   }
 
-  if (command === "server") {
-    return message.reply(`Server name: ${message.guild.name}`);
-  }
 
-  if (command === "user") {
-    return message.reply(`Your username is ${message.author.username}`);
-  }
+  // COINFLIP
+  if (cmd === "coinflip") {
 
-  if (command === "avatar") {
-    return message.reply(message.author.displayAvatarURL({ dynamic: true }));
-  }
-
-  if (command === "coinflip") {
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    return message.reply(`🪙 ${result}`);
+
+    message.reply(`🪙 ${result}`);
   }
 
-  if (command === "roll") {
+
+  // ROLL
+  if (cmd === "roll") {
+
     const roll = Math.floor(Math.random() * 6) + 1;
-    return message.reply(`🎲 You rolled ${roll}`);
+
+    message.reply(`🎲 You rolled ${roll}`);
   }
 
-  if (command === "clear") {
+
+  // AVATAR
+  if (cmd === "avatar") {
+
+    message.reply(message.author.displayAvatarURL({ dynamic: true }));
+  }
+
+
+  // =========================
+  // 🎫 TICKET SYSTEM
+  // =========================
+
+  if (cmd === "ticket") {
+
+    const channel = await message.guild.channels.create({
+      name: `ticket-${message.author.username}`,
+      type: ChannelType.GuildText,
+      permissionOverwrites: [
+        {
+          id: message.guild.id,
+          deny: [PermissionsBitField.Flags.ViewChannel]
+        },
+        {
+          id: message.author.id,
+          allow: [PermissionsBitField.Flags.ViewChannel]
+        }
+      ]
+    });
+
+    channel.send(`Support will be with you shortly ${message.author}`);
+  }
+
+
+  // CLOSE TICKET
+  if (cmd === "close") {
+
+    if (!message.channel.name.startsWith("ticket-")) return;
+
+    message.channel.delete();
+  }
+
+
+  // =========================
+  // 🎭 REACTION ROLES
+  // =========================
+
+  if (cmd === "reactionrole") {
+
+    const role = message.guild.roles.cache.find(r => r.name === "Member");
+
+    if (!role) return message.reply("Create a role named **Member** first.");
+
+    const msg = await message.channel.send("React with 👍 to get Member role");
+
+    await msg.react("👍");
+
+    const filter = (reaction, user) => reaction.emoji.name === "👍";
+
+    const collector = msg.createReactionCollector({ filter });
+
+    collector.on("collect", async (reaction, user) => {
+
+      const member = await message.guild.members.fetch(user.id);
+
+      member.roles.add(role);
+
+    });
+
+  }
+
+
+  // =========================
+  // 🔊 VOICE CHANNEL CREATOR
+  // =========================
+
+  if (cmd === "voice") {
+
+    const channel = await message.guild.channels.create({
+      name: `${message.author.username}'s Room`,
+      type: ChannelType.GuildVoice
+    });
+
+    message.reply(`Voice channel created: ${channel.name}`);
+  }
+
+
+  // =========================
+  // 🧹 CLEAR MESSAGES
+  // =========================
+
+  if (cmd === "clear") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-      return message.reply("You don't have permission.");
+      return message.reply("No permission");
 
     const amount = parseInt(args[0]);
-    if (!amount) return message.reply("Enter number of messages.");
 
-    await message.channel.bulkDelete(amount, true);
-    return message.channel.send(`Deleted ${amount} messages`);
+    if (!amount) return message.reply("Enter number");
+
+    await message.channel.bulkDelete(amount);
+
+    message.channel.send(`Deleted ${amount} messages`);
   }
 
-  if (command === "kick") {
 
-    if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers))
-      return message.reply("You don't have permission.");
+  // HELP
+  if (cmd === "help") {
 
-    const member = message.mentions.members.first();
-    if (!member) return message.reply("Mention a user.");
-
-    await member.kick();
-    return message.channel.send(`${member.user.tag} was kicked`);
-  }
-
-  if (command === "ban") {
-
-    if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers))
-      return message.reply("You don't have permission.");
-
-    const member = message.mentions.members.first();
-    if (!member) return message.reply("Mention a user.");
-
-    await member.ban();
-    return message.channel.send(`${member.user.tag} was banned`);
-  }
-
-  if (command === "help") {
-
-    return message.reply(`
+    message.reply(`
 Commands:
+
+.fun
 .ping
-.hello
-.server
-.user
-.avatar
+.level
 .coinflip
 .roll
+.avatar
+
+🎫 Ticket
+.ticket
+.close
+
+🎭 Roles
+.reactionrole
+
+🔊 Voice
+.voice
+
+🧹 Moderation
 .clear
-.kick
-.ban
-.help
 `);
   }
 
 });
 
 client.login(process.env.TOKEN);
+
