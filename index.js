@@ -123,28 +123,17 @@ client.on("messageCreate", async (message) => {
   }
 
 
-  // 🎭 REACTION ROLE
-  if (cmd === "reactionrole") {
-
-    const role = message.guild.roles.cache.find(r => r.name === "Member");
-
-    if (!role) return message.reply("Create a role named **Member** first.");
-
-    const msg = await message.channel.send("React with 👍 to get Member role");
-
-    await msg.react("👍");
-
-    const filter = (reaction, user) =>
-      reaction.emoji.name === "👍" && !user.bot;
-
-    const collector = msg.createReactionCollector({ filter });
-
-    collector.on("collect", async (reaction, user) => {
-      const member = await message.guild.members.fetch(user.id);
-      member.roles.add(role);
-    });
-
-  }
+  const reactionRoles = {
+  "🔴": "RED",
+  "🟠": "ORANGE",
+  "🟡": "YELLOW",
+  "🟢": "GREEN",
+  "🔵": "BLUE",
+  "🟣": "PURPLE",
+  "⚫": "BLACK",
+  "⚪": "WHITE",
+  "🌸": "PINK"
+};
 
 
   // 🔊 VOICE CHANNEL
@@ -209,3 +198,4 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
