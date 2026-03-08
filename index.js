@@ -17,7 +17,7 @@ const client = new Client({
 const prefix = ".";
 
 client.once("ready", () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
 
@@ -25,22 +25,17 @@ client.once("ready", () => {
 // 📊 LEVEL SYSTEM
 // =========================
 
-client.on("messageCreate", async message => {
+client.on("messageCreate", async (message) => {
 
-  if (message.author.bot) return;
-  if (!message.guild) return;
+  if (message.author.bot || !message.guild) return;
 
-  let xp = await db.get(`xp_${message.author.id}`);
-  if (!xp) xp = 0;
+  let xp = await db.get(`xp_${message.author.id}`) || 0;
+  let level = await db.get(`level_${message.author.id}`) || 1;
 
   xp += 5;
-
   await db.set(`xp_${message.author.id}`, xp);
 
-  let level = await db.get(`level_${message.author.id}`);
-  if (!level) level = 1;
-
-  let needed = level * 100;
+  const needed = level * 100;
 
   if (xp >= needed) {
 
@@ -59,53 +54,53 @@ client.on("messageCreate", async message => {
 // 🎮 COMMAND HANDLER
 // =========================
 
-client.on("messageCreate", async message => {
+client.on("messageCreate", async (message) => {
 
   if (message.author.bot) return;
   if (!message.content.startsWith(prefix)) return;
 
-  const args = message.content.slice(prefix.length).split(" ");
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
 
-  // PING
+  // 🏓 PING
   if (cmd === "ping") {
     return message.reply("🏓 Pong!");
   }
 
 
-  // LEVEL
+  // 📊 LEVEL
   if (cmd === "level") {
 
-    let level = await db.get(`level_${message.author.id}`) || 1;
-    let xp = await db.get(`xp_${message.author.id}`) || 0;
+    const level = await db.get(`level_${message.author.id}`) || 1;
+    const xp = await db.get(`xp_${message.author.id}`) || 0;
 
-    message.reply(`Level: **${level}** | XP: **${xp}**`);
+    return message.reply(`Level: **${level}** | XP: **${xp}**`);
   }
 
 
-  // COINFLIP
+  // 🪙 COINFLIP
   if (cmd === "coinflip") {
 
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
 
-    message.reply(`🪙 ${result}`);
+    return message.reply(`🪙 ${result}`);
   }
 
 
-  // ROLL
+  // 🎲 ROLL
   if (cmd === "roll") {
 
     const roll = Math.floor(Math.random() * 6) + 1;
 
-    message.reply(`🎲 You rolled ${roll}`);
+    return message.reply(`🎲 You rolled **${roll}**`);
   }
 
 
-  // AVATAR
+  // 🖼 AVATAR
   if (cmd === "avatar") {
 
-    message.reply(message.author.displayAvatarURL({ dynamic: true }));
+    return message.reply(message.author.displayAvatarURL({ dynamic: true }));
   }
 
 
@@ -115,8 +110,14 @@ client.on("messageCreate", async message => {
 
   if (cmd === "ticket") {
 
+    const existing = message.guild.channels.cache.find(
+      c => c.name === `ticket-${message.author.id}`
+    );
+
+    if (existing) return message.reply("You already have an open ticket.");
+
     const channel = await message.guild.channels.create({
-      name: `ticket-${message.author.username}`,
+      name: `ticket-${message.author.id}`,
       type: ChannelType.GuildText,
       permissionOverwrites: [
         {
@@ -130,14 +131,15 @@ client.on("messageCreate", async message => {
       ]
     });
 
-    channel.send(`Support will be with you shortly ${message.author}`);
+    channel.send(`🎫 Support will be with you shortly ${message.author}`);
   }
 
 
   // CLOSE TICKET
   if (cmd === "close") {
 
-    if (!message.channel.name.startsWith("ticket-")) return;
+    if (!message.channel.name.startsWith("ticket-"))
+      return message.reply("This is not a ticket channel.");
 
     message.channel.delete();
   }
@@ -157,7 +159,9 @@ client.on("messageCreate", async message => {
 
     await msg.react("👍");
 
-    const filter = (reaction, user) => reaction.emoji.name === "👍";
+    const filter = (reaction, user) => {
+      return reaction.emoji.name === "👍" && !user.bot;
+    };
 
     const collector = msg.createReactionCollector({ filter });
 
@@ -183,7 +187,7 @@ client.on("messageCreate", async message => {
       type: ChannelType.GuildVoice
     });
 
-    message.reply(`Voice channel created: ${channel.name}`);
+    return message.reply(`🔊 Voice channel created: **${channel.name}**`);
   }
 
 
@@ -194,15 +198,16 @@ client.on("messageCreate", async message => {
   if (cmd === "clear") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-      return message.reply("No permission");
+      return message.reply("❌ You don't have permission.");
 
     const amount = parseInt(args[0]);
 
-    if (!amount) return message.reply("Enter number");
+    if (!amount || amount > 100)
+      return message.reply("Enter a number between **1-100**.");
 
-    await message.channel.bulkDelete(amount);
+    await message.channel.bulkDelete(amount, true);
 
-    message.channel.send(`Deleted ${amount} messages`);
+    message.channel.send(`🧹 Deleted ${amount} messages`);
   }
 
 
@@ -210,16 +215,18 @@ client.on("messageCreate", async message => {
   if (cmd === "help") {
 
     message.reply(`
-Commands:
+📜 **Commands**
 
-.fun
+🎮 Fun
 .ping
-.level
 .coinflip
 .roll
 .avatar
 
-🎫 Ticket
+📊 Level
+.level
+
+🎫 Tickets
 .ticket
 .close
 
@@ -237,4 +244,3 @@ Commands:
 });
 
 client.login(process.env.TOKEN);
-
