@@ -1,272 +1,230 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, EmbedBuilder } = require("discord.js");
-const { QuickDB } = require("quick.db");
-
-const db = new QuickDB();
+```javascript
+const { 
+Client, 
+GatewayIntentBits, 
+EmbedBuilder, 
+PermissionsBitField, 
+ActionRowBuilder, 
+ButtonBuilder, 
+ButtonStyle, 
+Events 
+} = require('discord.js');
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMessageReactions
-  ]
+intents: [
+GatewayIntentBits.Guilds,
+GatewayIntentBits.GuildMembers,
+GatewayIntentBits.GuildMessages,
+GatewayIntentBits.MessageContent
+]
 });
 
-const prefix = ".";
+const prefix = "!";
 
-// ===== CONFIG =====
-
-const WELCOME_CHANNEL = "welcome"; 
-const GOODBYE_CHANNEL = "goodbye";
-
-const levelRoles = {
-  5: "14",
-  10: "15",
-  15: "16",
-  20: "17",
-  25: "18",
-  30: "19",
-  35: "20",
-  40: "21"
-};
-
-const colorRoles = {
-  "🔴": "RED",
-  "🟠": "ORANGE",
-  "🟡": "YELLOW",
-  "🟢": "GREEN",
-  "🔵": "BLUE",
-  "🟣": "PURPLE",
-  "⚫": "BLACK",
-  "⚪": "WHITE",
-  "🌸": "PINK"
-};
-
-// ===== READY =====
+/* ================= READY ================= */
 
 client.once("ready", () => {
-  console.log(`✅ Logged in as ${client.user.tag}`);
+console.log(`Logged in as ${client.user.tag}`);
 });
 
-// ===== WELCOME =====
+/* ================= WELCOME SYSTEM ================= */
 
-client.on("guildMemberAdd", async member => {
+client.on(Events.GuildMemberAdd, async member => {
 
-  const channel = member.guild.channels.cache.find(c => c.name === WELCOME_CHANNEL);
-  if (!channel) return;
+const channel = member.guild.channels.cache.find(c => c.name === "welcome");
 
-  const embed = new EmbedBuilder()
-    .setTitle("🎉 Welcome")
-    .setDescription(`Welcome ${member} to **${member.guild.name}**!`)
-    .setThumbnail(member.user.displayAvatarURL())
-    .setColor("Green")
-    .setFooter({ text: `Member #${member.guild.memberCount}` });
+if(!channel) return;
 
-  channel.send({ embeds: [embed] });
+const embed = new EmbedBuilder()
+.setTitle("Welcome!")
+.setDescription(`Welcome to **${member.guild.name}**, ${member}!`)
+.setThumbnail(member.user.displayAvatarURL())
+.setColor("Green")
+.setFooter({text:"Enjoy your stay!"});
 
-  try {
+channel.send({embeds:[embed]});
 
-    const dmEmbed = new EmbedBuilder()
-      .setTitle("Welcome!")
-      .setDescription(`Welcome to **${member.guild.name}**!\nEnjoy your stay.`)
-      .setColor("Blue");
-
-    member.send({ embeds: [dmEmbed] });
-
-  } catch {}
-
+try{
+await member.send(`Welcome to **${member.guild.name}**!`);
+}catch{}
 });
 
-// ===== GOODBYE =====
+/* ================= GOODBYE SYSTEM ================= */
 
-client.on("guildMemberRemove", member => {
+client.on(Events.GuildMemberRemove, member => {
 
-  const channel = member.guild.channels.cache.find(c => c.name === GOODBYE_CHANNEL);
-  if (!channel) return;
+const channel = member.guild.channels.cache.find(c => c.name === "goodbye");
 
-  const embed = new EmbedBuilder()
-    .setTitle("👋 Goodbye")
-    .setDescription(`${member.user.tag} left the server`)
-    .setColor("Red");
+if(!channel) return;
 
-  channel.send({ embeds: [embed] });
+const embed = new EmbedBuilder()
+.setTitle("Goodbye!")
+.setDescription(`${member.user.tag} has left the server.`)
+.setColor("Red");
+
+channel.send({embeds:[embed]});
 
 });
 
-// ===== LEVEL SYSTEM =====
+/* ================= COMMANDS ================= */
 
 client.on("messageCreate", async message => {
 
-  if (!message.guild) return;
-  if (message.author.bot) return;
+if(message.author.bot) return;
+if(!message.content.startsWith(prefix)) return;
 
-  let xp = await db.get(`xp_${message.author.id}`) || 0;
-  let level = await db.get(`level_${message.author.id}`) || 1;
+const args = message.content.slice(prefix.length).trim().split(/ +/);
+const command = args.shift().toLowerCase();
 
-  xp += 5;
+/* ===== PING ===== */
 
-  const needed = level * 100;
+if(command === "ping"){
+message.reply(`🏓 Pong! ${client.ws.ping}ms`);
+}
 
-  if (xp >= needed) {
+/* ===== CLEAR ===== */
 
-    level++;
+if(command === "clear"){
 
-    await db.set(`level_${message.author.id}`, level);
-    await db.set(`xp_${message.author.id}`, 0);
+if(!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
+return message.reply("No permission");
 
-    message.channel.send(`${message.author} leveled up to **${level}**`);
+const amount = args[0];
 
-    const roleName = levelRoles[level];
+if(!amount) return message.reply("Specify amount");
 
-    if (roleName) {
+await message.channel.bulkDelete(amount,true);
 
-      const role = message.guild.roles.cache.find(r => r.name === roleName);
+message.channel.send(`Deleted ${amount} messages`);
+}
 
-      if (role) {
+/* ===== KICK ===== */
 
-        const member = message.guild.members.cache.get(message.author.id);
-        member.roles.add(role);
+if(command === "kick"){
 
-      }
+if(!message.member.permissions.has(PermissionsBitField.Flags.KickMembers))
+return;
 
-    }
+const member = message.mentions.members.first();
 
-  } else {
+if(!member) return message.reply("Mention user");
 
-    await db.set(`xp_${message.author.id}`, xp);
+member.kick();
 
-  }
+message.channel.send(`${member.user.tag} kicked`);
+}
 
-  if (!message.content.startsWith(prefix)) return;
+/* ===== BAN ===== */
 
-  const args = message.content.slice(prefix.length).trim().split(/ +/);
-  const cmd = args.shift().toLowerCase();
+if(command === "ban"){
 
-  // ===== BASIC COMMANDS =====
+if(!message.member.permissions.has(PermissionsBitField.Flags.BanMembers))
+return;
 
-  if (cmd === "ping") return message.reply("🏓 Pong");
+const member = message.mentions.members.first();
 
-  if (cmd === "level") {
+if(!member) return message.reply("Mention user");
 
-    const level = await db.get(`level_${message.author.id}`) || 1;
-    const xp = await db.get(`xp_${message.author.id}`) || 0;
+member.ban();
 
-    message.reply(`Level: **${level}** | XP: **${xp}**`);
+message.channel.send(`${member.user.tag} banned`);
+}
 
-  }
+/* ================= EMBED BUILDER ================= */
 
-  // ===== COLOR ROLES PANEL =====
+if(command === "embed"){
 
-  if (cmd === "colorroles") {
+const text = args.join(" ");
 
-    const embed = new EmbedBuilder()
-      .setTitle("🎨 Choose Your Color")
-      .setDescription(`
-🔴 RED
-🟠 ORANGE
-🟡 YELLOW
-🟢 GREEN
-🔵 BLUE
-🟣 PURPLE
-⚫ BLACK
-⚪ WHITE
-🌸 PINK
-`)
-      .setColor("Blurple");
+if(!text) return message.reply("Provide embed text");
 
-    const msg = await message.channel.send({ embeds: [embed] });
+const embed = new EmbedBuilder()
+.setDescription(text)
+.setColor("Blue")
+.setFooter({text:`Requested by ${message.author.tag}`});
 
-    for (const emoji in colorRoles) {
-      await msg.react(emoji);
-    }
+message.channel.send({embeds:[embed]});
+}
 
-  }
+/* ================= COLOR ROLE PANEL ================= */
 
-  // ===== TICKET =====
+if(command === "colorpanel"){
 
-  if (cmd === "ticket") {
+const embed = new EmbedBuilder()
+.setTitle("Choose Your Color Role")
+.setDescription("Click a button to get a role")
+.setColor("Purple");
 
-    const channel = await message.guild.channels.create({
-      name: `ticket-${message.author.username}`,
-      type: ChannelType.GuildText,
-      permissionOverwrites: [
-        {
-          id: message.guild.id,
-          deny: [PermissionsBitField.Flags.ViewChannel]
-        },
-        {
-          id: message.author.id,
-          allow: [PermissionsBitField.Flags.ViewChannel]
-        }
-      ]
-    });
+const row = new ActionRowBuilder()
+.addComponents(
 
-    channel.send(`Support will be with you shortly ${message.author}`);
+new ButtonBuilder()
+.setCustomId("red_role")
+.setLabel("Red")
+.setStyle(ButtonStyle.Danger),
 
-  }
+new ButtonBuilder()
+.setCustomId("blue_role")
+.setLabel("Blue")
+.setStyle(ButtonStyle.Primary),
 
-  if (cmd === "close") {
+new ButtonBuilder()
+.setCustomId("green_role")
+.setLabel("Green")
+.setStyle(ButtonStyle.Success)
 
-    if (!message.channel.name.startsWith("ticket-")) return;
+);
 
-    message.channel.delete();
+message.channel.send({embeds:[embed],components:[row]});
 
-  }
-
-  // ===== CLEAR =====
-
-  if (cmd === "clear") {
-
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-      return message.reply("No permission");
-
-    const amount = parseInt(args[0]);
-
-    if (!amount) return;
-
-    await message.channel.bulkDelete(amount);
-
-    message.channel.send(`Deleted ${amount} messages`);
-
-  }
+}
 
 });
 
-// ===== REACTION ROLES =====
+/* ================= BUTTON ROLE HANDLER ================= */
 
-client.on("messageReactionAdd", async (reaction, user) => {
+client.on(Events.InteractionCreate, async interaction => {
 
-  if (user.bot) return;
+if(!interaction.isButton()) return;
 
-  const roleName = colorRoles[reaction.emoji.name];
-  if (!roleName) return;
+const member = interaction.member;
 
-  const role = reaction.message.guild.roles.cache.find(r => r.name === roleName);
-  if (!role) return;
+if(interaction.customId === "red_role"){
 
-  const member = await reaction.message.guild.members.fetch(user.id);
+const role = interaction.guild.roles.cache.find(r => r.name === "Red");
 
-  member.roles.add(role);
+if(!role) return interaction.reply({content:"Role not found",ephemeral:true});
+
+member.roles.add(role);
+
+interaction.reply({content:"Red role added!",ephemeral:true});
+}
+
+if(interaction.customId === "blue_role"){
+
+const role = interaction.guild.roles.cache.find(r => r.name === "Blue");
+
+if(!role) return interaction.reply({content:"Role not found",ephemeral:true});
+
+member.roles.add(role);
+
+interaction.reply({content:"Blue role added!",ephemeral:true});
+}
+
+if(interaction.customId === "green_role"){
+
+const role = interaction.guild.roles.cache.find(r => r.name === "Green");
+
+if(!role) return interaction.reply({content:"Role not found",ephemeral:true});
+
+member.roles.add(role);
+
+interaction.reply({content:"Green role added!",ephemeral:true});
+}
 
 });
 
-client.on("messageReactionRemove", async (reaction, user) => {
+/* ================= LOGIN ================= */
 
-  if (user.bot) return;
-
-  const roleName = colorRoles[reaction.emoji.name];
-  if (!roleName) return;
-
-  const role = reaction.message.guild.roles.cache.find(r => r.name === roleName);
-  if (!role) return;
-
-  const member = await reaction.message.guild.members.fetch(user.id);
-
-  member.roles.remove(role);
-
-});
-
-// ===== LOGIN =====
-
-client.login(process.env.TOKEN);
+client.login("YOUR_BOT_TOKEN");
+```
