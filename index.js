@@ -20,14 +20,13 @@ client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-
-// =========================
-// 📊 LEVEL SYSTEM
-// =========================
-
 client.on("messageCreate", async (message) => {
 
   if (message.author.bot || !message.guild) return;
+
+  // =========================
+  // 📊 LEVEL SYSTEM
+  // =========================
 
   let xp = await db.get(`xp_${message.author.id}`) || 0;
   let level = await db.get(`level_${message.author.id}`) || 1;
@@ -38,25 +37,13 @@ client.on("messageCreate", async (message) => {
   const needed = level * 100;
 
   if (xp >= needed) {
-
     level++;
-
     await db.set(`level_${message.author.id}`, level);
     await db.set(`xp_${message.author.id}`, 0);
-
     message.channel.send(`${message.author} leveled up to **${level}** 🎉`);
   }
 
-});
-
-
-// =========================
-// 🎮 COMMAND HANDLER
-// =========================
-
-client.on("messageCreate", async (message) => {
-
-  if (message.author.bot) return;
+  // Ignore messages without prefix
   if (!message.content.startsWith(prefix)) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
@@ -71,7 +58,6 @@ client.on("messageCreate", async (message) => {
 
   // 📊 LEVEL
   if (cmd === "level") {
-
     const level = await db.get(`level_${message.author.id}`) || 1;
     const xp = await db.get(`xp_${message.author.id}`) || 0;
 
@@ -81,33 +67,25 @@ client.on("messageCreate", async (message) => {
 
   // 🪙 COINFLIP
   if (cmd === "coinflip") {
-
     const result = Math.random() < 0.5 ? "Heads" : "Tails";
-
     return message.reply(`🪙 ${result}`);
   }
 
 
   // 🎲 ROLL
   if (cmd === "roll") {
-
     const roll = Math.floor(Math.random() * 6) + 1;
-
     return message.reply(`🎲 You rolled **${roll}**`);
   }
 
 
   // 🖼 AVATAR
   if (cmd === "avatar") {
-
     return message.reply(message.author.displayAvatarURL({ dynamic: true }));
   }
 
 
-  // =========================
-  // 🎫 TICKET SYSTEM
-  // =========================
-
+  // 🎫 CREATE TICKET
   if (cmd === "ticket") {
 
     const existing = message.guild.channels.cache.find(
@@ -145,10 +123,7 @@ client.on("messageCreate", async (message) => {
   }
 
 
-  // =========================
-  // 🎭 REACTION ROLES
-  // =========================
-
+  // 🎭 REACTION ROLE
   if (cmd === "reactionrole") {
 
     const role = message.guild.roles.cache.find(r => r.name === "Member");
@@ -159,27 +134,20 @@ client.on("messageCreate", async (message) => {
 
     await msg.react("👍");
 
-    const filter = (reaction, user) => {
-      return reaction.emoji.name === "👍" && !user.bot;
-    };
+    const filter = (reaction, user) =>
+      reaction.emoji.name === "👍" && !user.bot;
 
     const collector = msg.createReactionCollector({ filter });
 
     collector.on("collect", async (reaction, user) => {
-
       const member = await message.guild.members.fetch(user.id);
-
       member.roles.add(role);
-
     });
 
   }
 
 
-  // =========================
-  // 🔊 VOICE CHANNEL CREATOR
-  // =========================
-
+  // 🔊 VOICE CHANNEL
   if (cmd === "voice") {
 
     const channel = await message.guild.channels.create({
@@ -191,10 +159,7 @@ client.on("messageCreate", async (message) => {
   }
 
 
-  // =========================
-  // 🧹 CLEAR MESSAGES
-  // =========================
-
+  // 🧹 CLEAR
   if (cmd === "clear") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
