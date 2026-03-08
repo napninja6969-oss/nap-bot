@@ -123,17 +123,37 @@ client.on("messageCreate", async (message) => {
   }
 
 
-  const reactionRoles = {
-  "🔴": "RED",
-  "🟠": "ORANGE",
-  "🟡": "YELLOW",
-  "🟢": "GREEN",
-  "🔵": "BLUE",
-  "🟣": "PURPLE",
-  "⚫": "BLACK",
-  "⚪": "WHITE",
-  "🌸": "PINK"
-};
+const { EmbedBuilder } = require("discord.js");
+
+if (cmd === "colorroles") {
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎨 Choose Your Color Role")
+    .setDescription(`
+React to select your color!
+
+🔴 RED
+🟠 ORANGE
+🟡 YELLOW
+🟢 GREEN
+🔵 BLUE
+🟣 PURPLE
+⚫ BLACK
+⚪ WHITE
+🌸 PINK
+`)
+    .setColor("#5865F2")
+    .setFooter({ text: "React to get a role" });
+
+  const msg = await message.channel.send({ embeds: [embed] });
+
+  const emojis = ["🔴","🟠","🟡","🟢","🔵","🟣","⚫","⚪","🌸"];
+
+  for (const emoji of emojis) {
+    await msg.react(emoji);
+  }
+
+}
 
 
   // 🔊 VOICE CHANNEL
@@ -198,4 +218,5 @@ client.on("messageCreate", async (message) => {
 });
 
 client.login(process.env.TOKEN);
+
 
