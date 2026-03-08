@@ -1,5 +1,8 @@
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType } = require("discord.js");
-const { QuickDB } = require("quick.db");
+client.on("messageCreate", async (message) => {
+
+  console.log("Message received:", message.content);
+
+  if (message.author.bot) return;
 
 const db = new QuickDB();
 
@@ -218,5 +221,6 @@ React to select your color!
 });
 
 client.login(process.env.TOKEN);
+
 
 
