@@ -1,104 +1,194 @@
-client.on("messageCreate", async (message) => {
-
-  console.log("Message received:", message.content);
-
-  if (message.author.bot) return;
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, EmbedBuilder } = require("discord.js");
+const { QuickDB } = require("quick.db");
 
 const db = new QuickDB();
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessageReactions
   ]
 });
 
 const prefix = ".";
 
+// ===== CONFIG =====
+
+const WELCOME_CHANNEL = "welcome"; 
+const GOODBYE_CHANNEL = "goodbye";
+
+const levelRoles = {
+  5: "14",
+  10: "15",
+  15: "16",
+  20: "17",
+  25: "18",
+  30: "19",
+  35: "20",
+  40: "21"
+};
+
+const colorRoles = {
+  "🔴": "RED",
+  "🟠": "ORANGE",
+  "🟡": "YELLOW",
+  "🟢": "GREEN",
+  "🔵": "BLUE",
+  "🟣": "PURPLE",
+  "⚫": "BLACK",
+  "⚪": "WHITE",
+  "🌸": "PINK"
+};
+
+// ===== READY =====
+
 client.once("ready", () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-client.on("messageCreate", async (message) => {
+// ===== WELCOME =====
 
-  if (message.author.bot || !message.guild) return;
+client.on("guildMemberAdd", async member => {
 
-  // =========================
-  // 📊 LEVEL SYSTEM
-  // =========================
+  const channel = member.guild.channels.cache.find(c => c.name === WELCOME_CHANNEL);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎉 Welcome")
+    .setDescription(`Welcome ${member} to **${member.guild.name}**!`)
+    .setThumbnail(member.user.displayAvatarURL())
+    .setColor("Green")
+    .setFooter({ text: `Member #${member.guild.memberCount}` });
+
+  channel.send({ embeds: [embed] });
+
+  try {
+
+    const dmEmbed = new EmbedBuilder()
+      .setTitle("Welcome!")
+      .setDescription(`Welcome to **${member.guild.name}**!\nEnjoy your stay.`)
+      .setColor("Blue");
+
+    member.send({ embeds: [dmEmbed] });
+
+  } catch {}
+
+});
+
+// ===== GOODBYE =====
+
+client.on("guildMemberRemove", member => {
+
+  const channel = member.guild.channels.cache.find(c => c.name === GOODBYE_CHANNEL);
+  if (!channel) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("👋 Goodbye")
+    .setDescription(`${member.user.tag} left the server`)
+    .setColor("Red");
+
+  channel.send({ embeds: [embed] });
+
+});
+
+// ===== LEVEL SYSTEM =====
+
+client.on("messageCreate", async message => {
+
+  if (!message.guild) return;
+  if (message.author.bot) return;
 
   let xp = await db.get(`xp_${message.author.id}`) || 0;
   let level = await db.get(`level_${message.author.id}`) || 1;
 
   xp += 5;
-  await db.set(`xp_${message.author.id}`, xp);
 
   const needed = level * 100;
 
   if (xp >= needed) {
+
     level++;
+
     await db.set(`level_${message.author.id}`, level);
     await db.set(`xp_${message.author.id}`, 0);
-    message.channel.send(`${message.author} leveled up to **${level}** 🎉`);
+
+    message.channel.send(`${message.author} leveled up to **${level}**`);
+
+    const roleName = levelRoles[level];
+
+    if (roleName) {
+
+      const role = message.guild.roles.cache.find(r => r.name === roleName);
+
+      if (role) {
+
+        const member = message.guild.members.cache.get(message.author.id);
+        member.roles.add(role);
+
+      }
+
+    }
+
+  } else {
+
+    await db.set(`xp_${message.author.id}`, xp);
+
   }
 
-  // Ignore messages without prefix
   if (!message.content.startsWith(prefix)) return;
 
   const args = message.content.slice(prefix.length).trim().split(/ +/);
   const cmd = args.shift().toLowerCase();
 
+  // ===== BASIC COMMANDS =====
 
-  // 🏓 PING
-  if (cmd === "ping") {
-    return message.reply("🏓 Pong!");
-  }
+  if (cmd === "ping") return message.reply("🏓 Pong");
 
-
-  // 📊 LEVEL
   if (cmd === "level") {
+
     const level = await db.get(`level_${message.author.id}`) || 1;
     const xp = await db.get(`xp_${message.author.id}`) || 0;
 
-    return message.reply(`Level: **${level}** | XP: **${xp}**`);
+    message.reply(`Level: **${level}** | XP: **${xp}**`);
+
   }
 
+  // ===== COLOR ROLES PANEL =====
 
-  // 🪙 COINFLIP
-  if (cmd === "coinflip") {
-    const result = Math.random() < 0.5 ? "Heads" : "Tails";
-    return message.reply(`🪙 ${result}`);
+  if (cmd === "colorroles") {
+
+    const embed = new EmbedBuilder()
+      .setTitle("🎨 Choose Your Color")
+      .setDescription(`
+🔴 RED
+🟠 ORANGE
+🟡 YELLOW
+🟢 GREEN
+🔵 BLUE
+🟣 PURPLE
+⚫ BLACK
+⚪ WHITE
+🌸 PINK
+`)
+      .setColor("Blurple");
+
+    const msg = await message.channel.send({ embeds: [embed] });
+
+    for (const emoji in colorRoles) {
+      await msg.react(emoji);
+    }
+
   }
 
+  // ===== TICKET =====
 
-  // 🎲 ROLL
-  if (cmd === "roll") {
-    const roll = Math.floor(Math.random() * 6) + 1;
-    return message.reply(`🎲 You rolled **${roll}**`);
-  }
-
-
-  // 🖼 AVATAR
-  if (cmd === "avatar") {
-    return message.reply(message.author.displayAvatarURL({ dynamic: true }));
-  }
-
-
-  // 🎫 CREATE TICKET
   if (cmd === "ticket") {
 
-    const existing = message.guild.channels.cache.find(
-      c => c.name === `ticket-${message.author.id}`
-    );
-
-    if (existing) return message.reply("You already have an open ticket.");
-
     const channel = await message.guild.channels.create({
-      name: `ticket-${message.author.id}`,
+      name: `ticket-${message.author.username}`,
       type: ChannelType.GuildText,
       permissionOverwrites: [
         {
@@ -112,115 +202,71 @@ client.on("messageCreate", async (message) => {
       ]
     });
 
-    channel.send(`🎫 Support will be with you shortly ${message.author}`);
+    channel.send(`Support will be with you shortly ${message.author}`);
+
   }
 
-
-  // CLOSE TICKET
   if (cmd === "close") {
 
-    if (!message.channel.name.startsWith("ticket-"))
-      return message.reply("This is not a ticket channel.");
+    if (!message.channel.name.startsWith("ticket-")) return;
 
     message.channel.delete();
+
   }
 
+  // ===== CLEAR =====
 
-const { EmbedBuilder } = require("discord.js");
-
-if (cmd === "colorroles") {
-
-  const embed = new EmbedBuilder()
-    .setTitle("🎨 Choose Your Color Role")
-    .setDescription(`
-React to select your color!
-
-🔴 RED
-🟠 ORANGE
-🟡 YELLOW
-🟢 GREEN
-🔵 BLUE
-🟣 PURPLE
-⚫ BLACK
-⚪ WHITE
-🌸 PINK
-`)
-    .setColor("#5865F2")
-    .setFooter({ text: "React to get a role" });
-
-  const msg = await message.channel.send({ embeds: [embed] });
-
-  const emojis = ["🔴","🟠","🟡","🟢","🔵","🟣","⚫","⚪","🌸"];
-
-  for (const emoji of emojis) {
-    await msg.react(emoji);
-  }
-
-}
-
-
-  // 🔊 VOICE CHANNEL
-  if (cmd === "voice") {
-
-    const channel = await message.guild.channels.create({
-      name: `${message.author.username}'s Room`,
-      type: ChannelType.GuildVoice
-    });
-
-    return message.reply(`🔊 Voice channel created: **${channel.name}**`);
-  }
-
-
-  // 🧹 CLEAR
   if (cmd === "clear") {
 
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages))
-      return message.reply("❌ You don't have permission.");
+      return message.reply("No permission");
 
     const amount = parseInt(args[0]);
 
-    if (!amount || amount > 100)
-      return message.reply("Enter a number between **1-100**.");
+    if (!amount) return;
 
-    await message.channel.bulkDelete(amount, true);
+    await message.channel.bulkDelete(amount);
 
-    message.channel.send(`🧹 Deleted ${amount} messages`);
-  }
+    message.channel.send(`Deleted ${amount} messages`);
 
-
-  // HELP
-  if (cmd === "help") {
-
-    message.reply(`
-📜 **Commands**
-
-🎮 Fun
-.ping
-.coinflip
-.roll
-.avatar
-
-📊 Level
-.level
-
-🎫 Tickets
-.ticket
-.close
-
-🎭 Roles
-.reactionrole
-
-🔊 Voice
-.voice
-
-🧹 Moderation
-.clear
-`);
   }
 
 });
 
+// ===== REACTION ROLES =====
+
+client.on("messageReactionAdd", async (reaction, user) => {
+
+  if (user.bot) return;
+
+  const roleName = colorRoles[reaction.emoji.name];
+  if (!roleName) return;
+
+  const role = reaction.message.guild.roles.cache.find(r => r.name === roleName);
+  if (!role) return;
+
+  const member = await reaction.message.guild.members.fetch(user.id);
+
+  member.roles.add(role);
+
+});
+
+client.on("messageReactionRemove", async (reaction, user) => {
+
+  if (user.bot) return;
+
+  const roleName = colorRoles[reaction.emoji.name];
+  if (!roleName) return;
+
+  const role = reaction.message.guild.roles.cache.find(r => r.name === roleName);
+  if (!role) return;
+
+  const member = await reaction.message.guild.members.fetch(user.id);
+
+  member.roles.remove(role);
+
+});
+
+// ===== LOGIN =====
+
 client.login(process.env.TOKEN);
-
-
-
